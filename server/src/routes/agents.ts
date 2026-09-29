@@ -12,7 +12,7 @@ import { pipeline } from "node:stream/promises";
 import { resolveAgentAppearance, agentAvatarUrl } from "@paperclipai/shared";
 import { listOpenRouterModels } from "../services/openrouter-models.js";
 import { prepareManagedAiRuntime, withManagedAiProbe, assertManagedAiProjectAuth, stripAiAuthBindings } from "../services/ai-connection-runtime.js";
-import { ADAPTER_AUTH_MISSING_CHECK_CODE, AI_CONNECTION_CAPABILITIES, aiConnectionBindingSchema, type AiConnectionBinding, aiRuntimeConnectionBindingSchema, type AiRuntimeConnectionBinding } from "@paperclipai/shared";
+import { ADAPTER_AUTH_MISSING_CHECK_CODE, AI_CONNECTION_CAPABILITIES, aiConnectionBindingSchema, isAiConnectionManagedAdapter, type AiConnectionBinding, aiRuntimeConnectionBindingSchema, type AiRuntimeConnectionBinding } from "@paperclipai/shared";
 import { toolConnections } from "@paperclipai/db";
 import { aiConnectionService } from "../services/ai-connections.js";
 import { defaultAiConnectionForHire } from "../services/agent-ai-connection-default.js";
@@ -3583,7 +3583,9 @@ export function agentRoutes(
       const adapter = requireServerAdapter(type);
 
       const requestedBinding = req.body.aiConnection ? aiRuntimeConnectionBindingSchema.parse(req.body.aiConnection) : undefined;
-      const aiBinding = requestedBinding?.mode === "router" ? undefined : requestedBinding;
+      const aiBinding = requestedBinding && requestedBinding.mode !== "router" && isAiConnectionManagedAdapter(type)
+        ? requestedBinding
+        : undefined;
       if (aiBinding && req.body.testCredentials && Object.keys(req.body.testCredentials).length) throw unprocessable("A managed connection test cannot override its credentials");
       const inputAdapterConfig = aiBinding ? { ...req.body.adapterConfig, env: stripAiAuthBindings(req.body.adapterConfig?.env) } : (req.body?.adapterConfig ?? {}) as Record<string, unknown>;
       const savedAgentId = typeof req.body.agentId === "string" ? req.body.agentId : null;
@@ -4833,7 +4835,9 @@ export function agentRoutes(
       const requiresApproval = company.requireBoardApprovalForNewAgents;
       const status = requiresApproval ? "pending_approval" : "idle";
       const managedHireBinding = normalizedHireInput.runtimeConfig?.aiConnection ? aiRuntimeConnectionBindingSchema.parse(normalizedHireInput.runtimeConfig.aiConnection) : undefined;
-      const managedHireConnection = managedHireBinding ? await validateManagedAgentBinding(req, companyId, hiredAgentId, normalizedHireInput.adapterType, normalizedHireInput.adapterConfig, managedHireBinding, normalizedHireInput.defaultEnvironmentId, false, true) : undefined;
+      const managedHireConnection = managedHireBinding && isAiConnectionManagedAdapter(normalizedHireInput.adapterType)
+        ? await validateManagedAgentBinding(req, companyId, hiredAgentId, normalizedHireInput.adapterType, normalizedHireInput.adapterConfig, managedHireBinding, normalizedHireInput.defaultEnvironmentId, false, true)
+        : undefined;
       const createdAgent = await svc.create(
         companyId,
         {
@@ -5087,7 +5091,9 @@ export function agentRoutes(
     });
 
     const managedBinding = normalizedRuntimeConfig.aiConnection ? aiRuntimeConnectionBindingSchema.parse(normalizedRuntimeConfig.aiConnection) : undefined;
-    const managedConnection = managedBinding ? await validateManagedAgentBinding(req, companyId, agentId, createInput.adapterType, normalizedAdapterConfig, managedBinding, createInput.defaultEnvironmentId, false, true) : undefined;
+    const managedConnection = managedBinding && isAiConnectionManagedAdapter(createInput.adapterType)
+      ? await validateManagedAgentBinding(req, companyId, agentId, createInput.adapterType, normalizedAdapterConfig, managedBinding, createInput.defaultEnvironmentId, false, true)
+      : undefined;
     const createdAgent = await svc.create(
       companyId,
       {
@@ -5799,7 +5805,9 @@ export function agentRoutes(
       const changed = JSON.stringify(nextAiBinding) !== JSON.stringify(existing.runtimeConfig.aiConnection);
       const aiConfig = (patchData.adapterConfig ?? existing.adapterConfig) as Record<string, unknown>;
       if (nextAiBinding.mode !== "router" && !isAiConnectionCompatible(nextAiBinding, requestedAdapterType, aiConfig.model, aiConfig.provider, aiConfig.acpxAgent)) throw unprocessable("Select an AI connection compatible with the new harness and model");
-      if (changed || (nextAiBinding.mode === "router" && requestedAdapterType !== existing.adapterType)) await validateManagedAgentBinding(req, existing.companyId, existing.id, requestedAdapterType, aiConfig, nextAiBinding, (patchData.defaultEnvironmentId !== undefined ? patchData.defaultEnvironmentId : existing.defaultEnvironmentId) as string | null, true);
+      // A managed adapter switch must validate and install the binding it is
+      // about to run with, not only when the binding itself changed.
+      if (changed || requestedAdapterType !== existing.adapterType) await validateManagedAgentBinding(req, existing.companyId, existing.id, requestedAdapterType, aiConfig, nextAiBinding, (patchData.defaultEnvironmentId !== undefined ? patchData.defaultEnvironmentId : existing.defaultEnvironmentId) as string | null, true);
     }
     if (requestedRuntimeConfig) patchData.runtimeConfig = requestedRuntimeConfig;
     if (touchesAdapterConfiguration || Object.prototype.hasOwnProperty.call(patchData, "defaultEnvironmentId")) {
