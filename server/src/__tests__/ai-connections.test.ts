@@ -1514,8 +1514,11 @@ console.log(JSON.stringify({ type: "result", subtype: "success", result: "hello"
     const managedResult = defaultAiConnectionForHire("claude_local", { model: "test", provider: "acpx" }, managerBinding);
     expect(managedResult).toBeDefined();
     expect(managedResult?.provider).toBe("anthropic");
-    // Fully managed harnesses that are not self-authenticating keep inheriting too.
-    expect(defaultAiConnectionForHire("hermes_local", { model: "test", provider: "acpx" }, managerBinding)).toBeDefined();
+    // Managed harnesses without a provider default keep inheriting an installed connection.
+    expect(defaultAiConnectionForHire("hermes_local", { model: "test", provider: "acpx" }, {
+      provider: "anthropic", method: "api_key", mode: "shared",
+      connectionId: randomUUID(), grantId: randomUUID(),
+    })).toBeDefined();
     expect(defaultAiConnectionForHire("gemini_local", { model: "test", provider: "google" }, { provider: "google", method: "api_key", mode: "responsible_user" })).toBeDefined();
   });
   it("keeps self-authenticated adapters out of the managed runtime", async () => {
