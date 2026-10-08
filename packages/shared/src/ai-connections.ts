@@ -146,10 +146,16 @@ export function isAiConnectionCompatible(
   runnerProvider?: unknown,
   acpxAgent?: unknown,
 ): boolean {
+  // Routing is a harness capability. Evaluate it before any adapter-family
+  // decision so a routed requirement stays rejected on harnesses that do not
+  // support routing, self-authenticated or not.
+  if ("routing" in requirement && requirement.routing) {
+    const harness = aiRoutingHarness(adapterType, runnerProvider, acpxAgent);
+    return requirement.method === "api_key" && isAiRoutingCompatible(requirement.routing, harness);
+  }
   if (!isAiConnectionManagedAdapter(adapterType))
     return isAiConnectionSelfAuthenticatedAdapter(adapterType);
   adapterType = aiRoutingHarness(adapterType, runnerProvider, acpxAgent);
-  if ("routing" in requirement && requirement.routing) return requirement.method === "api_key" && isAiRoutingCompatible(requirement.routing, adapterType);
   // A fixed binding contains identity only. The service checks authoritative
   // connection metadata before resolving credentials or running the harness.
   if ("mode" in requirement && requirement.mode !== "responsible_user" && requirement.method === "api_key")
