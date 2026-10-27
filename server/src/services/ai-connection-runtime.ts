@@ -10,7 +10,7 @@ import { and, eq } from "drizzle-orm";
 import { type Db, companySecrets, connectionGrants } from "@paperclipai/db";
 import {
   AI_CONNECTION_CAPABILITIES,
-  isAiConnectionManagedAdapter,
+  isAiConnectionSelfAuthenticatedAdapter,
   aiConnectionMetadataSchema, aiRoutingHarness,
   type AiConnectionBinding,
 } from "@paperclipai/shared";
@@ -237,7 +237,7 @@ export async function prepareManagedAiRuntime(
     config: Record<string, unknown>;
   },
 ) {
-  if (!isAiConnectionManagedAdapter(input.adapterType)) {
+  if (isAiConnectionSelfAuthenticatedAdapter(input.adapterType)) {
     throw unprocessable(
       "This adapter manages its own provider credentials and cannot use a Paperclip AI connection",
       { code: "ai_connection_incompatible" },

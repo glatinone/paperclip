@@ -155,10 +155,10 @@ export function isAiConnectionCompatible(
   runnerProvider?: unknown,
   acpxAgent?: unknown,
 ): boolean {
-  if (!isAiConnectionManagedAdapter(adapterType))
-    return isAiConnectionSelfAuthenticatedAdapter(adapterType);
-  adapterType = aiRoutingHarness(adapterType, runnerProvider, acpxAgent);
-  if ("routing" in requirement && requirement.routing) return requirement.method === "api_key" && isAiRoutingCompatible(requirement.routing, adapterType);
+  const harness = aiRoutingHarness(adapterType, runnerProvider, acpxAgent);
+  if ("routing" in requirement && requirement.routing) return requirement.method === "api_key" && isAiRoutingCompatible(requirement.routing, harness);
+  if (isAiConnectionSelfAuthenticatedAdapter(adapterType)) return true;
+  adapterType = harness;
   // A fixed binding contains identity only. The service checks authoritative
   // connection metadata before resolving credentials or running the harness.
   if (adapterType === "pi_local") return (requirement.method === "api_key" || ("mode" in requirement && requirement.mode === "responsible_user"))
