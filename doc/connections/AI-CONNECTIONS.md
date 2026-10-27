@@ -60,7 +60,7 @@ Changing those separately may make a binding incompatible; saving then requires
 a compatible choice. Agent configuration cannot grant access to another account.
 
 Self-authenticated adapters — `hermes_gateway`, `openclaw_gateway`,
-`cursor_cloud`, `cursor`, `kimi_local`, and `pi_local` — own their provider
+`cursor_cloud`, `cursor`, and `kimi_local` — own their provider
 login inside the adapter configuration. They never inherit, validate, install,
 or run a managed AI connection: an explicit `runtimeConfig.aiConnection` for
 such an agent is dropped on create, hire, and update, a row persisted by an

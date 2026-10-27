@@ -78,7 +78,6 @@ const SELF_AUTHENTICATED_ADAPTERS = new Set([
   "cursor_cloud",
   "hermes_gateway",
   "kimi_local",
-  "pi_local",
   "cursor",
   "openclaw_gateway",
 ]);
@@ -90,7 +89,7 @@ const SELF_AUTHENTICATED_ADAPTERS = new Set([
  */
 export function isAiConnectionManagedAdapter(adapterType: string): boolean {
   return adapterType === "paperclip_runner" ||
-    ["claude_local", "codex_local", "opencode_local", "grok_local", "gemini_local", "hermes_local"].includes(adapterType);
+    ["claude_local", "codex_local", "opencode_local", "grok_local", "gemini_local", "hermes_local", "pi_local"].includes(adapterType);
 }
 
 export function isAiConnectionSelfAuthenticatedAdapter(adapterType: string): boolean {
