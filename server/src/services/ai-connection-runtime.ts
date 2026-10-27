@@ -11,7 +11,7 @@ import { type Db, companySecrets, connectionGrants } from "@paperclipai/db";
 import {
   AI_CONNECTION_CAPABILITIES,
   aiConnectionMetadataSchema, aiRoutingHarness,
-  isAiConnectionManagedAdapter,
+  isAiConnectionSelfAuthenticatedAdapter,
   type AiConnectionBinding,
 } from "@paperclipai/shared";
 import { managedProviderRouting } from "./ai-provider-routing.js";
@@ -237,7 +237,7 @@ export async function prepareManagedAiRuntime(
     config: Record<string, unknown>;
   },
 ) {
-  if (!isAiConnectionManagedAdapter(input.adapterType)) {
+  if (isAiConnectionSelfAuthenticatedAdapter(input.adapterType)) {
     throw unprocessable(
       "This adapter manages its own provider credentials and cannot use a Paperclip AI connection",
       { code: "ai_connection_incompatible" },
