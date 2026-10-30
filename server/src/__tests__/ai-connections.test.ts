@@ -2019,8 +2019,9 @@ console.log(JSON.stringify({ type: "result", subtype: "success", result: "hello"
     expect(isAiConnectionCompatible(binding, "paperclip_runner", "same-model", "acpx", "codex")).toBe(false);
     expect(isAiConnectionCompatible({ provider: "openrouter", method: "api_key" }, "opencode_local", "anthropic/model")).toBe(false);
     expect(isAiConnectionManagedAdapter("hermes_gateway")).toBe(false);
-    expect(isAiConnectionCompatible({ provider: "anthropic", method: "api_key" }, "hermes_gateway")).toBe(true);
-    expect(isAiConnectionCompatible({ provider: "anthropic", method: "api_key" }, "openclaw_gateway")).toBe(true);
+    expect(isAiConnectionCompatible({ provider: "anthropic", method: "api_key" }, "hermes_gateway")).toBe(false);
+    expect(isAiConnectionCompatible({ provider: "anthropic", method: "api_key" }, "openclaw_gateway")).toBe(false);
+    expect(isAiConnectionCompatible({ provider: "anthropic", method: "api_key", mode: "responsible_user" }, "kimi_local")).toBe(false);
     expect(isAiConnectionCompatible({ provider: "anthropic", method: "api_key" }, "unknown_adapter")).toBe(false);
   });
   it("never lets a self-authenticated adapter inherit a manager binding on hire (Greptile P1)", () => {
@@ -2038,6 +2039,15 @@ console.log(JSON.stringify({ type: "result", subtype: "success", result: "hello"
       connectionId: randomUUID(), grantId: randomUUID(),
     })).toBeDefined();
     expect(defaultAiConnectionForHire("gemini_local", { model: "test", provider: "google" }, { provider: "google", method: "api_key", mode: "responsible_user" })).toBeDefined();
+    // Unsupported adapters never inherit a manager's pool or binding.
+    const managerPool = { mode: "router", connectionId: randomUUID() };
+    for (const adapter of ["process", "http", "external", "hermes_gateway", "kimi_local"]) {
+      expect(defaultAiConnectionForHire(adapter, {}, managerPool)).toBeUndefined();
+      expect(defaultAiConnectionForHire(adapter, {}, managerBinding)).toBeUndefined();
+    }
+    // A managed harness, Pi included, still inherits the manager's pool.
+    expect(defaultAiConnectionForHire("claude_local", {}, managerPool)).toEqual(managerPool);
+    expect(defaultAiConnectionForHire("pi_local", { model: "anthropic/model" }, managerPool)).toEqual(managerPool);
   });
   it("keeps self-authenticated adapters out of the managed runtime", async () => {
     await expect(prepareManagedAiRuntime(db, {

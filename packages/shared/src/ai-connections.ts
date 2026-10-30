@@ -157,8 +157,10 @@ export function isAiConnectionCompatible(
     const harness = aiRoutingHarness(adapterType, runnerProvider, acpxAgent);
     return requirement.method === "api_key" && isAiRoutingCompatible(requirement.routing, harness);
   }
-  if (!isAiConnectionManagedAdapter(adapterType))
-    return isAiConnectionSelfAuthenticatedAdapter(adapterType);
+  // Self-authenticated and unknown adapters never run a managed connection, so
+  // no managed binding is compatible with them. Callers that skip validation
+  // for self-authenticated adapters do so explicitly.
+  if (!isAiConnectionManagedAdapter(adapterType)) return false;
   adapterType = aiRoutingHarness(adapterType, runnerProvider, acpxAgent);
   // A fixed binding contains identity only. The service checks authoritative
   // connection metadata before resolving credentials or running the harness.

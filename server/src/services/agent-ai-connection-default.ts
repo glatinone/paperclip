@@ -2,7 +2,7 @@ import {
   AI_PROVIDERS,
   aiRuntimeConnectionBindingSchema,
   isAiConnectionCompatible,
-  isAiConnectionSelfAuthenticatedAdapter,
+  isAiConnectionManagedAdapter,
   type AiConnectionBinding,
   type AiRuntimeConnectionBinding,
   type AiProvider,
@@ -25,10 +25,10 @@ export function defaultAiConnectionForHire(
   config: Record<string, unknown>,
   managerBinding: unknown,
 ): AiRuntimeConnectionBinding | undefined {
-  // Self-authenticated adapters never inherit an AI connection binding: the
-  // binding would be stored without ever being installed and would then block
-  // the first run as "connection not permitted" (Greptile P1 on #15513).
-  if (isAiConnectionSelfAuthenticatedAdapter(adapterType)) return undefined;
+  // Only managed harnesses inherit an AI connection binding. A self-authenticated
+  // adapter would store a binding that is never installed, and an unsupported
+  // one (process, http, ...) would inherit a pool that then blocks the hire.
+  if (!isAiConnectionManagedAdapter(adapterType)) return undefined;
   const compatible = (binding: AiConnectionBinding) =>
     isAiConnectionCompatible(binding, adapterType, config.model, config.provider, config.acpxAgent);
   const inherited = aiRuntimeConnectionBindingSchema.safeParse(managerBinding);
