@@ -111,7 +111,10 @@ export const AI_CONNECTION_CAPABILITIES: Record<
     name: "GitHub Copilot",
     methods: { api_key: { adapters: ["copilot_runtime"], envKey: "COPILOT_GITHUB_TOKEN" } },
   },
-  google: { name: "Google", methods: { api_key: { adapters: ["gemini_local", "pi_local"], envKey: "GEMINI_API_KEY" } } },
+  google: { name: "Google", methods: {
+    api_key: { adapters: ["gemini_local", "pi_local", "antigravity_runtime"], envKey: "GEMINI_API_KEY" },
+    subscription: { adapters: ["antigravity_runtime"], envKey: "GEMINI_HOME" },
+  } },
   anthropic: {
     name: "Claude",
     methods: {
@@ -150,18 +153,22 @@ export function isAiConnectionCompatible(
   runnerProvider?: unknown,
   acpxAgent?: unknown,
 ): boolean {
+  const harness = aiRoutingHarness(adapterType, runnerProvider, acpxAgent);
+  // Antigravity uses its own Google runtime sign-in or a Gemini API key.
+  // Tool OAuth and API-compatible endpoints cannot authenticate this harness.
+  if (harness === "antigravity_runtime") return requirement.provider === "google"
+    && (requirement.method === "api_key" || requirement.method === "subscription")
+    && !("routing" in requirement && requirement.routing);
   // Routing is a harness capability. Evaluate it before any adapter-family
   // decision so a routed requirement stays rejected on harnesses that do not
   // support routing, self-authenticated or not.
-  if ("routing" in requirement && requirement.routing) {
-    const harness = aiRoutingHarness(adapterType, runnerProvider, acpxAgent);
+  if ("routing" in requirement && requirement.routing)
     return requirement.method === "api_key" && isAiRoutingCompatible(requirement.routing, harness);
-  }
   // Self-authenticated and unknown adapters never run a managed connection, so
   // no managed binding is compatible with them. Callers that skip validation
   // for self-authenticated adapters do so explicitly.
   if (!isAiConnectionManagedAdapter(adapterType)) return false;
-  adapterType = aiRoutingHarness(adapterType, runnerProvider, acpxAgent);
+  adapterType = harness;
   // A fixed binding contains identity only. The service checks authoritative
   // connection metadata before resolving credentials or running the harness.
   if (adapterType === "pi_local") return (requirement.method === "api_key" || ("mode" in requirement && requirement.mode === "responsible_user"))
@@ -266,7 +273,7 @@ export type CreateAiConnection = z.infer<typeof createAiConnectionSchema>;
 
 export const aiConnectionLoginIntentSchema = z
   .object({
-    provider: z.enum(["anthropic", "openai", "xai"]),
+    provider: z.enum(["anthropic", "openai", "xai", "google"]),
     method: z.literal("subscription"),
     name: z.string().trim().min(1).max(160),
     ownership: z.enum(["personal", "shared"]),
@@ -288,6 +295,7 @@ export interface LocalAiLoginStatus {
   authorizationUrl?: string;
   code?: string;
   error?: string;
+  accountLabel?: string;
 }
 export interface LocalAiLoginAttempt {
   sessionId: string;
@@ -300,6 +308,6 @@ export interface LocalAiLoginAttempt {
 export function aiSubscriptionNeedsIsolatedLogin(config: Record<string, unknown> | undefined): boolean {
   const metadata = aiConnectionMetadataSchema.safeParse(config?.ai);
   return metadata.success && metadata.data.method === "subscription" &&
-    (metadata.data.provider === "openai" || metadata.data.provider === "xai") &&
+    (["openai", "xai", "google"].includes(metadata.data.provider)) &&
     config?.aiIsolatedSubscription !== true;
 }
